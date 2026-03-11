@@ -53,6 +53,7 @@ const ball = {
 let lastTime = 0;
 let paused = false;
 let mouseActive = false;
+let touchActive = false;
 let mouseY = 0;
 let upPressed = false;
 let downPressed = false;
@@ -80,12 +81,41 @@ canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   mouseY = e.clientY - rect.top;
   mouseActive = true;
+  touchActive = false;
   // center paddle on mouse y
   leftPaddle.y = clamp(mouseY - leftPaddle.height / 2, 0, HEIGHT - leftPaddle.height);
 });
 
+// Touch support (mobile / tablet)
+// Use passive: false so we can call preventDefault and stop page scrolling while interacting.
+canvas.addEventListener('touchstart', (e) => {
+  if (!e.touches || e.touches.length === 0) return;
+  e.preventDefault();
+  touchActive = true;
+  mouseActive = false;
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const y = touch.clientY - rect.top;
+  leftPaddle.y = clamp(y - leftPaddle.height / 2, 0, HEIGHT - leftPaddle.height);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!e.touches || e.touches.length === 0) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const y = touch.clientY - rect.top;
+  leftPaddle.y = clamp(y - leftPaddle.height / 2, 0, HEIGHT - leftPaddle.height);
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  // when touch ends, allow keyboard if used later
+  touchActive = false;
+}, { passive: false });
+
 // Input: keyboard
 window.addEventListener('keydown', (e) => {
+  if (touchActive) return; // ignore keyboard while touch active
   if (e.code === 'ArrowUp') { upPressed = true; mouseActive = false; }
   if (e.code === 'ArrowDown') { downPressed = true; mouseActive = false; }
   if (e.code === 'Space') { paused = !paused; e.preventDefault(); }
@@ -112,7 +142,7 @@ function update(dt) {
   }
 
   // Player paddle movement via keys
-  if (!mouseActive) {
+  if (!mouseActive && !touchActive) {
     if (upPressed) leftPaddle.y -= paddleSpeed;
     else if (downPressed) leftPaddle.y += paddleSpeed;
   }
@@ -263,7 +293,7 @@ requestAnimationFrame(loop);
 // Reset mouseActive if mouse leaves canvas
 canvas.addEventListener('mouseleave', () => { mouseActive = false; });
 
-// Prevent page scroll for arrow keys in some browsers
+// Prevent page scroll for arrow keys and space in some browsers
 window.addEventListener('keydown', function(e) {
   if (["ArrowUp","ArrowDown","Space"].indexOf(e.code) > -1) {
     e.preventDefault();
